@@ -1,12 +1,6 @@
 { config, pkgs, lib, currentSystem, currentSystemName, ... }:
 
 {
-  imports = [
-    ../modules/specialization/plasma.nix
-    ../modules/specialization/i3.nix
-    ../modules/specialization/gnome-ibus.nix
-  ];
-
   # Be careful updating this.
   boot.kernelPackages = pkgs.linuxPackages_latest;
 
@@ -17,14 +11,6 @@
       keep-outputs = true
       keep-derivations = true
     '';
-
-    # public binary cache that I use for all my derivations. You can keep
-    # this, use your own, or toss it. Its typically safe to use a binary cache
-    # since the data inside is checksummed.
-    settings = {
-      substituters = ["https://mitchellh-nixos-config.cachix.org"];
-      trusted-public-keys = ["mitchellh-nixos-config.cachix.org-1:bjEbXJyLrL1HZZHBbO4QALnI5faYZppzkU4D2s0G8RQ="];
-    };
   };
 
   nixpkgs.config.permittedInsecurePackages = [
@@ -41,15 +27,14 @@
   boot.loader.systemd-boot.consoleMode = "0";
 
   # Define your hostname.
-  networking.hostName = "dev";
+  networking.hostName = "nixdev";
 
   # Set your time zone.
-  time.timeZone = "America/Los_Angeles";
+  time.timeZone = "America/Denver";
 
-  # The global useDHCP flag is deprecated, therefore explicitly set to false here.
-  # Per-interface useDHCP will be mandatory in the future, so this generated config
-  # replicates the default behaviour.
-  networking.useDHCP = false;
+  # nixos-generate-config still emits the false-plus-per-interface pair, so
+  # expect to see it again on the next bootstrap; it is not what we want here.
+  networking.useDHCP = true;
 
   # Don't require password for sudo
   security.sudo.wheelNeedsPassword = false;
@@ -60,34 +45,18 @@
   # Select internationalisation properties.
   i18n = {
     defaultLocale = "en_US.UTF-8";
-    inputMethod = {
-      enable = true;
-      type = "fcitx5";
-      fcitx5.addons = with pkgs; [
-        qt6Packages.fcitx5-chinese-addons
-        fcitx5-gtk
-        fcitx5-hangul
-        fcitx5-mozc
-      ];
-    };
   };
-
-  # Enable tailscale. We manually authenticate when we want with
-  # "sudo tailscale up". If you don't use tailscale, you should comment
-  # out or delete all of this.
-  services.tailscale.enable = true;
 
   # Define a user account. Don't forget to set a password with ‘passwd’.
   users.mutableUsers = false;
 
-  # Manage fonts. We pull these from a secret directory since most of these
-  # fonts require a purchase.
+  # Manage fonts. Everything here comes from nixpkgs except Consolas, which
+  # the flake.nix overlay builds from our own repo -- see below.
   fonts = {
     fontDir.enable = true;
 
     packages = [
-      pkgs.fira-code
-      pkgs.jetbrains-mono
+      pkgs.consolas-powerline
     ];
   };
 
@@ -111,25 +80,19 @@
     gtkmm3
   ];
 
-  # Our default non-specialised desktop environment.
-  services.xserver = lib.mkIf (config.specialisation != {}) {
-    enable = true;
-    xkb.layout = "us";
-  };
-  services.desktopManager = lib.mkIf (config.specialisation != {}) {
-    gnome.enable = true;
-  };
-  services.displayManager = lib.mkIf (config.specialisation != {}) {
-    gdm.enable = true;
-  };
+  # KDE Plasma 6 on X11.
+  services.xserver.enable = true;
+  services.displayManager.sddm.enable = true;
+  services.displayManager.sddm.wayland.enable = false;
+  services.desktopManager.plasma6.enable = true;
 
-  # Some programs need SUID wrappers, can be configured further or are
-  # started in user sessions.
-  # programs.mtr.enable = true;
-  # programs.gnupg.agent = {
-  #   enable = true;
-  #   enableSSHSupport = true;
-  # };
+  xdg.portal = {
+    # Needed for various applications to work properly, such as Flatpak apps.
+    # plasma6 adds the KDE portal itself; this is the GTK one for GTK apps.
+    enable = true;
+    extraPortals = [ pkgs.xdg-desktop-portal-gtk ];
+    config.common.default = "*";
+  };
 
   # Enable the OpenSSH daemon.
   services.openssh.enable = true;
@@ -139,10 +102,6 @@
   # Enable flatpak. I don't use any flatpak apps but I do sometimes
   # test them so I keep this enabled.
   services.flatpak.enable = true;
-
-  # Enable snap. I don't really use snap but I do sometimes test them
-  # and release snaps so we keep this enabled.
-  services.snap.enable = true;
 
   # Disable the firewall since we're in a VM and we want to make it
   # easy to visit stuff in here. We only use NAT networking anyways.

@@ -41,7 +41,6 @@ in systemFunc rec {
   ] ++ optionals isWSL [
     inputs.nixos-wsl.nixosModules.wsl
   ] ++ optionals isLinux [
-    inputs.nix-snapd.nixosModules.default
   ] ++ optionals darwin [
     # An existing Linux builder is needed to initially bootstrap
     # `nix-rosetta-builder`. After the first `darwin-rebuild switch`,
