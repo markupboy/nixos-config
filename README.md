@@ -27,7 +27,7 @@ that modern computers are plenty fast enough for the best of both worlds.
 
 Here is what it ends up looking like:
 
-![Screenshot](https://raw.githubusercontent.com/mitchellh/nixos-config/main/.github/images/screenshot.png)
+![Screenshot](https://raw.githubusercontent.com/markupboy/nixos-config/main/.github/images/screenshot.png)
 
 Note that I usually full screen the VM so there isn't actually a window,
 and I three-finger swipe or use other keyboard shortcuts to active that
@@ -84,7 +84,7 @@ Create a VMware Fusion VM with the following settings. The primary VM
 configuration targets VMware Fusion; use the separate UTM target for UTM.
 
 * ISO: NixOS 25.05 or later.
-* Disk: SATA 150 GB+
+* Disk: NVME 150 GB+
 * CPU/Memory: I give at least half my cores and half my RAM, as much as you can.
 * Graphics: Full acceleration, full resolution, maximum graphics RAM.
 * Network: Shared with my Mac.
