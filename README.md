@@ -1,73 +1,18 @@
 # NixOS System Configurations
 
-This repository contains my NixOS system configurations. This repository
-isn't meant to be a turnkey solution to copying my setup or learning Nix,
-so I want to apologize to anyone trying to look for something "easy". I've
-tried to use very simple Nix practices wherever possible, but if you wish
-to copy from this, you'll have to learn the basics of Nix, NixOS, etc.
-
-I don't claim to be an expert at Nix or NixOS, so there are certainly
-improvements that could be made! Feel free to suggest them, but please don't
-be offended if I don't integrate them, I value having my config work over
-having it be optimal.
+This repository contains my NixOS system configurations - a heavily modified
+version of [Mitchell Hashimoto's](https://github.com/mitchellh/nixos-config).
 
 ## How I Work
 
-I like to use macOS as the host OS and NixOS within a VM as my primary
-development environment. I use the graphical applications on the host
-(browser, calendars, mail app, iMessage, etc.) but I do almost everything
-dev-related in the VM (editor, compilation, databases, etc.).
-
-Inevitably I get asked **why?** I genuinely like the macOS application
-ecosystem, and I'm pretty "locked in" to their various products such as
-iMessage. I like the Apple hardware, and I particularly like that my hardware
-always Just Works with excellent performance, battery life, and service.
-However, I prefer the Linux environment for almost all my dev work. I find
-that modern computers are plenty fast enough for the best of both worlds.
+I'm using macOS as the host OS and NixOS within a VM as development environment.
+I use the graphical applications on the host (browser, calendars, mail app,
+iMessage, etc.) but am shifting more and more dev-related tasks to the VM
+(editor, compilation, databases, etc.).
 
 Here is what it ends up looking like:
 
-![Screenshot](https://raw.githubusercontent.com/markupboy/nixos-config/main/.github/images/screenshot.png)
-
-Note that I usually full screen the VM so there isn't actually a window,
-and I three-finger swipe or use other keyboard shortcuts to active that
-window.
-
-### Common Questions Related To This Workflow
-
-**How does web application development work?** I use the VM's IP. Even
-though it isn't strictly static, it never changes since I rarely run
-other VMs. You just have to make sure software in the VM listens
-on `0.0.0.0` so that it isn't only binding to loopback.
-
-**Does copy/paste work?** Yes.
-
-**Do you use shared folders?** I set up a shared folder so I can access
-the home directory of my host OS user, but I very rarely use it. I primarily
-only use it to access browser downloads. You can see this setup in these
-Nix files.
-
-**Do you ever launch graphical applications in the VM?** Sometimes, but rarely.
-I'll sometimes do OAuth flows and stuff using FireFox in the VM. Most of the
-time, I use the host OS browser.
-
-**Do you have graphical performance issues?** For the types of graphical
-applications I run (GUIs, browsers, etc.), not really. VMware (and other
-hypervisors) support 3D acceleration on macOS and I get really smooth
-rendering because of it.
-
-**This can't actually work! This only works on a powerful workstation!**
-I've been doing this since late 2020, and I've developed
-[a lot of very real software](https://www.hashicorp.com/). It works for me.
-I also use this VM on a MacBook Pro (to be fair, it is maxed out on specs),
-and I have no issues whatsoever.
-
-**Does this work with Apple Silicon Macs?** Yes, I use VMware Fusion, and this
-repository also includes a UTM configuration. I've been using an Apple Silicon
-Mac full time since Nov 2021 with this setup.
-
-**Does this work on Windows?** The maintained VM configurations target
-Apple Silicon Macs. See the WSL section below for the Windows environment.
+![Screenshot](https://raw.githubusercontent.com/markupboy/nixos-config/main/.github/images/screenshot.jpg)
 
 ## Setup (VM)
 
@@ -100,20 +45,18 @@ $ passwd
 # change to root
 ```
 
-At this point, verify `/dev/sda` exists. This is the expected block device
-where the Makefile will install the OS. If you setup your VM to use SATA,
-this should exist. If `/dev/nvme` or `/dev/vda` exists instead, you didn't
-configure the disk properly. Note, these other block device types work fine,
-but you'll have to modify the `bootstrap0` Makefile task to use the proper
-block device paths.
+At this point, verify `/dev/nvme0n1` exists. This is the expected block device
+where the Makefile will install the OS.
 
 Also at this point, I recommend making a snapshot in case anything goes wrong.
 I usually call this snapshot "prebootstrap0". This is entirely optional,
 but it'll make it super easy to go back and retry if things go wrong.
 
-Run `ifconfig` and get the IP address of the first device. It is probably
-`192.168.58.XXX`, but it can be anything. In a terminal with this repository
-set this to the `NIXADDR` env var:
+Run `ip addr` and get the IP address of the first device. It is probably
+`192.168.58.XXX`, but it can be anything. I prefer to use bridge networking
+instead of sharing with my mac host in order to get a true IP on the network
+(and ensure no DNS weirdness) but that's all personal choice. In a terminal with
+this repository set this to the `NIXADDR` env var:
 
 ```
 export NIXADDR=<VM ip address>
@@ -146,10 +89,6 @@ make vm/bootstrap
 ```
 
 You should have a graphical functioning dev VM.
-
-At this point, I never use Mac terminals ever again. I clone this repository
-in my VM and I use the other Make tasks such as `make test`, `make switch`, etc.
-to make changes my VM.
 
 ## Setup (macOS/Darwin)
 
