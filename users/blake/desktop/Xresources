@@ -1,0 +1,43 @@
+! X resources for the i3 session.
+!
+! Xft.dpi is what actually scales GTK apps, rofi and pango (so i3's bar and
+! window titles). Keep it equal to services.xserver.dpi in vm-shared.nix --
+! the X server flag alone does not set this resource.
+Xft.dpi: 220
+
+Xft.autohint: false
+Xft.antialias: true
+Xft.hinting: true
+Xft.hintstyle: hintslight
+Xft.rgba: rgb
+Xft.lcdfilter: lcddefault
+
+! one-dark, matching desktop/i3.conf and ghostty
+*background: #17191d
+*foreground: #abb2bf
+*cursorColor: #feffff
+
+! black
+*color0:  #000000
+*color8:  #434852
+! red
+*color1:  #ef596f
+*color9:  #f38897
+! green
+*color2:  #89ca78
+*color10: #a9d89d
+! yellow
+*color3:  #e5c07b
+*color11: #edd4a6
+! blue
+*color4:  #4a90d9
+*color12: #6baee8
+! magenta
+*color5:  #d55fde
+*color13: #e089e7
+! cyan
+*color6:  #2bbac5
+*color14: #4bced8
+! white
+*color7:  #abb2bf
+*color15: #c8cdd5

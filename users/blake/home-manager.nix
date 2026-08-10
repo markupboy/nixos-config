@@ -18,16 +18,14 @@ let
       (name: _: lib.nameValuePair "${target}/${name}" { source = "${src}/${name}"; })
       (lib.filterAttrs (_: type: type == "regular") (builtins.readDir src));
 
+  # True when this is the graphical Linux VM, which is the only place the i3
+  # desktop config applies.
+  isDesktop = isLinux && !isWSL;
+
   # ghostty's config lives in the dotfiles, but the Linux VM needs a few
-  # overrides on top of it (Plasma owns Super, KWin draws the decorations).
-  #
-  # We concatenate rather than using ghostty's own `config-file` include
-  # because the include's precedence relative to the file that declares it is
-  # not obvious; plain text order is. The dotfiles' `config-file =
-  # ?local.ghostty` line survives and still resolves against
-  # ~/.config/ghostty, so per-machine overrides keep working on top of both.
+  # overrides on top of it (i3 draws the borders, and there is no compositor).
   ghosttyConfig =
-    if isLinux && !isWSL then {
+    if isDesktop then {
       text = builtins.readFile "${inputs.dotfiles}/ghostty/config"
         + "\n"
         + builtins.readFile ./ghostty-linux.conf;
@@ -97,7 +95,7 @@ in {
     # This is automatically setup on Linux
     pkgs.cachix
     pkgs.gettext
-  ]) ++ (lib.optionals (isLinux && !isWSL) [
+  ]) ++ (lib.optionals isDesktop [
     pkgs.chromium
     pkgs.clang # treesitter parsers need a C compiler
     pkgs.firefox
@@ -135,6 +133,10 @@ in {
     ".gitignore".source = "${inputs.dotfiles}/git/gitignore.symlink";
   };
 
+  # ~/.Xresources, merged into the X server by the xrdb call in vm-shared.nix's
+  # sessionCommands.
+  xresources.extraConfig = lib.mkIf isDesktop (builtins.readFile ./desktop/Xresources);
+
   xdg.configFile =
     # fish: per-file, so home-manager can still drop plugin-*.fish alongside.
     (linkInto "fish/conf.d" "${inputs.dotfiles}/fish/conf.d")
@@ -143,6 +145,14 @@ in {
       "nvim".source = "${inputs.dotfiles}/nvim";
       "ghostty/config" = ghosttyConfig;
       "ghostty/themes".source = "${inputs.dotfiles}/ghostty/themes";
+    }
+
+    # The i3 desktop.
+    // lib.optionalAttrs isDesktop {
+      "i3/config".source = ./desktop/i3.conf;
+      "i3status/config".source = ./desktop/i3status.conf;
+      "rofi/config.rasi".source = ./desktop/rofi.rasi;
+      "dunst/dunstrc".source = ./desktop/dunstrc;
     }
     ;
 
@@ -241,12 +251,30 @@ in {
     maxCacheTtl = 31536000;
   };
 
-  # No `size` here on purpose -- home-manager defaults it to 32, and Plasma
-  # owns display scaling anyway (kscreen, via its display settings GUI). Set
-  # it explicitly only if the cursor looks wrong at whatever scale you pick.
-  home.pointerCursor = lib.mkIf (isLinux && !isWSL) {
+  gtk = lib.mkIf isDesktop {
+    enable = true;
+
+    theme = {
+      name = "Adwaita-dark";
+      package = pkgs.gnome-themes-extra;
+    };
+
+    iconTheme = {
+      name = "Adwaita";
+      package = pkgs.adwaita-icon-theme;
+    };
+
+    gtk3.extraConfig.gtk-application-prefer-dark-theme = true;
+    gtk4.theme = null;
+    gtk4.extraConfig.gtk-application-prefer-dark-theme = true;
+  };
+
+  # The cursor. Size tracks services.xserver.dpi in vm-shared.nix
+  home.pointerCursor = lib.mkIf isDesktop {
     name = "Vanilla-DMZ";
     package = pkgs.vanilla-dmz;
+    size = 64;
     x11.enable = true;
+    gtk.enable = true;
   };
 }

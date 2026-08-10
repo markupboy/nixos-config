@@ -1,0 +1,89 @@
+// rofi config for the i3 launcher (alt+o / alt+shift+o).
+// Linked to ~/.config/rofi/config.rasi by home-manager.
+//
+// No `dpi` setting on purpose: rofi's default of 0 means "read Xft.dpi from
+// the X server", which desktop/Xresources already sets. Pinning it here would
+// fight that.
+
+configuration {
+    modes: "drun,run,window";
+    font: "Consolas 7NF 10";
+    show-icons: false;
+    terminal: "ghostty";
+    drun-display-format: "{name}";
+    display-drun: "run";
+    display-run: "exec";
+    display-window: "window";
+}
+
+// one-dark, matching desktop/i3.conf and ghostty.
+* {
+    bg:        #17191d;
+    bg-alt:    #21252b;
+    grey:      #434852;
+    fg:        #abb2bf;
+    fg-bright: #c8cdd5;
+    accent:    #4a90d9;
+    urgent:    #ef596f;
+
+    background-color: transparent;
+    text-color:       @fg;
+}
+
+window {
+    background-color: @bg;
+    border:           2px;
+    border-color:     @accent;
+    border-radius:    6px;
+    padding:          12px;
+    width:            40%;
+}
+
+mainbox {
+    children: [ inputbar, listview ];
+    spacing:  10px;
+}
+
+inputbar {
+    children:   [ prompt, entry ];
+    spacing:    8px;
+    padding:    6px 8px;
+    background-color: @bg-alt;
+    border-radius:    4px;
+}
+
+prompt {
+    text-color: @accent;
+}
+
+entry {
+    placeholder:       "";
+    text-color:        @fg-bright;
+    cursor:            text;
+}
+
+listview {
+    lines:        10;
+    scrollbar:    false;
+    fixed-height: false;
+    spacing:      2px;
+}
+
+element {
+    padding:       4px 8px;
+    border-radius: 4px;
+}
+
+element selected.normal {
+    background-color: @accent;
+    text-color:       @bg;
+}
+
+element urgent {
+    text-color: @urgent;
+}
+
+element-text {
+    background-color: transparent;
+    text-color:       inherit;
+}

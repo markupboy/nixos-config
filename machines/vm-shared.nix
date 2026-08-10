@@ -54,9 +54,11 @@
   # the flake.nix overlay builds from our own repo -- see below.
   fonts = {
     fontDir.enable = true;
+    enableDefaultPackages = true;
 
     packages = [
       pkgs.consolas-powerline
+      pkgs.noto-fonts
     ];
   };
 
@@ -67,11 +69,48 @@
     gnumake
     killall
     xclip
+    rofi
+    dunst
+    libnotify # notify-send, for testing dunst
+    xss-lock
+    lxqt.lxqt-policykit # auth prompts; Plasma used to supply the agent
+    xsetroot
+    xdg-utils # xdg-open, so "open link" works from dunst and from apps
 
-    # For hypervisors that support auto-resizing, this script forces it.
-    # I've noticed not everyone listens to the udev events so this is a hack.
+    # Make the guest resolution follow the hypervisor window.
+    (writeShellScriptBin "display-autofit" ''
+      export PATH=${lib.makeBinPath [ xrandr xev coreutils gnused gnugrep gawk ]}:$PATH
+      set -u
+
+      apply() {
+        local out block
+        out=$(xrandr | awk '/ connected/ { print $1; exit }')
+        [ -n "$out" ] || return 0
+
+        block=$(xrandr | sed -n "/^''${out} /,/^[^[:space:]]/p")
+        printf '%s\n' "$block" | grep -q '[*]+' && return 0
+
+        xrandr --output "$out" --auto
+      }
+
+      apply
+      [ "''${1:-run}" = once ] && exit 0
+
+      while true; do
+        stdbuf -oL xev -root -event randr 2>/dev/null |
+          while read -r line; do
+            case "$line" in
+              RRScreenChangeNotify*) apply ;;
+            esac
+          done
+        sleep 2
+      done
+    '')
+
+    # Manual one-shot, kept for the times you want to force a refit without
+    # waiting for an event.
     (writeShellScriptBin "xrandr-auto" ''
-      ${pkgs.xrandr}/bin/xrandr --output Virtual-1 --auto
+      exec display-autofit once
     '')
   ] ++ lib.optionals (currentSystemName == "vm-aarch64") [
     # This is needed for the vmware user tools clipboard to work.
@@ -80,15 +119,41 @@
     gtkmm3
   ];
 
-  # KDE Plasma 6 on X11.
-  services.xserver.enable = true;
-  services.displayManager.sddm.enable = true;
-  services.displayManager.sddm.wayland.enable = false;
-  services.desktopManager.plasma6.enable = true;
+  services.xserver = {
+    enable = true;
+    xkb.layout = "us";
+
+    # The VM runs at the host's full Retina resolution (see README), so the
+    # guest sees ~2x the pixels for the same physical size. This is the one
+    # knob that scales i3, rofi, dunst and GTK together -- if everything is
+    # comically large or small, change it here and in desktop/Xresources.
+    dpi = 220;
+
+    desktopManager.xterm.enable = false;
+
+    displayManager.lightdm.enable = true;
+
+    # Runs as the user, before i3 starts. The vmware-guest module appends its
+    # own vmware-user-suid-wrapper line here too (clipboard + auto-resize).
+    displayManager.sessionCommands = ''
+      ${pkgs.xset}/bin/xset r rate 200 40
+
+      if [ -f "$HOME/.Xresources" ]; then
+        ${pkgs.xrdb}/bin/xrdb -merge "$HOME/.Xresources"
+      fi
+    '';
+
+    windowManager.i3 = {
+      enable = true;
+      extraPackages = with pkgs; [ i3status i3lock ];
+    };
+  };
+
+  services.displayManager.defaultSession = "none+i3";
+
+  programs.dconf.enable = true;
 
   xdg.portal = {
-    # Needed for various applications to work properly, such as Flatpak apps.
-    # plasma6 adds the KDE portal itself; this is the GTK one for GTK apps.
     enable = true;
     extraPortals = [ pkgs.xdg-desktop-portal-gtk ];
     config.common.default = "*";
