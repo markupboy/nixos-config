@@ -3,7 +3,7 @@
 ! Xft.dpi is what actually scales GTK apps, rofi and pango (so i3's bar and
 ! window titles). Keep it equal to services.xserver.dpi in vm-shared.nix --
 ! the X server flag alone does not set this resource.
-Xft.dpi: 220
+Xft.dpi: 192
 
 Xft.autohint: false
 Xft.antialias: true

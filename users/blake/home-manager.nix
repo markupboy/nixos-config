@@ -273,7 +273,7 @@ in {
   home.pointerCursor = lib.mkIf isDesktop {
     name = "Vanilla-DMZ";
     package = pkgs.vanilla-dmz;
-    size = 64;
+    size = 48;
     x11.enable = true;
     gtk.enable = true;
   };

@@ -127,7 +127,7 @@
     # guest sees ~2x the pixels for the same physical size. This is the one
     # knob that scales i3, rofi, dunst and GTK together -- if everything is
     # comically large or small, change it here and in desktop/Xresources.
-    dpi = 220;
+    dpi = 192;
 
     desktopManager.xterm.enable = false;
 
