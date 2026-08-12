@@ -72,7 +72,6 @@
     rofi
     dunst
     libnotify # notify-send, for testing dunst
-    xss-lock
     lxqt.lxqt-policykit # auth prompts; Plasma used to supply the agent
     xsetroot
     xdg-utils # xdg-open, so "open link" works from dunst and from apps
@@ -145,7 +144,7 @@
 
     windowManager.i3 = {
       enable = true;
-      extraPackages = with pkgs; [ i3status i3lock ];
+      extraPackages = with pkgs; [ i3status ];
     };
   };
 
