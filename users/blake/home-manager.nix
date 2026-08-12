@@ -242,6 +242,31 @@ in {
     enable = isLinux;
   };
 
+  # `make vm/secrets` copies the 1Password keys in under their item names, and
+  # ssh only probes the standard id_* filenames on its own -- without this the
+  # gitea and gitlab keys would sit on disk and never be offered.
+  programs.ssh = lib.mkIf isLinux {
+    enable = true;
+
+    # matchBlocks is deprecated in home-manager 26.05 in favour of settings,
+    # which takes upstream ssh_config(5) directive names verbatim. Turning off
+    # the default config keeps that block to just what we ask for.
+    enableDefaultConfig = false;
+
+    settings."*" = {
+      AddKeysToAgent = "yes";
+
+      # Offered in order until one is accepted. Four is comfortably under the
+      # usual MaxAuthTries of 6.
+      IdentityFile = [
+        "~/.ssh/id_ed25519"
+        "~/.ssh/gitea"
+        "~/.ssh/gitlab"
+        "~/.ssh/phobos_id_rsa"
+      ];
+    };
+  };
+
   services.gpg-agent = {
     enable = isLinux;
     pinentry.package = pkgs.pinentry-tty;

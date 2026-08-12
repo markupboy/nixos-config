@@ -22,6 +22,20 @@ NIXCACHE_NAME ?= vm-aarch64
 # SSH options
 SSH_OPTIONS=-o PubkeyAuthentication=no -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no
 
+# 1Password vault holding the SSH keys copied into the VM.
+OP_VAULT ?= Private
+
+# Where secrets/backup writes and secrets/restore reads. Override to point at
+# removable media: make secrets/backup SECRETS_ARCHIVE=/Volumes/usb/secrets.tar.gz.gpg
+SECRETS_ARCHIVE ?= $(HOME)/secrets.tar.gz.gpg
+
+# vm/secrets opens one connection per key, so multiplex: the VM password (or
+# Touch ID prompt) is only answered once. Unlike SSH_OPTIONS this leaves pubkey
+# auth enabled, since vm/bootstrap runs vm/switch first and the authorized keys
+# are already in place by the time we get here.
+SECRETS_SSH_OPTIONS=-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no \
+	-o ControlMaster=auto -o ControlPath=/tmp/nixos-config-secrets-%C -o ControlPersist=120
+
 .PHONY: switch
 switch:
 ifeq ($(UNAME), Darwin)
@@ -56,14 +70,34 @@ cache:
 	# TODO
 
 # Backup secrets so that we can transer them to new machines via
-# sneakernet or other means.
+# sneakernet or other means. 1Password is the source of truth; this is the
+# hedge against losing access to it. Unlike vm/secrets this has to stage the
+# keys on disk, because tar needs real files, so the staging directory is
+# removed on every exit path.
 .PHONY: secrets/backup
 secrets/backup:
-	# TODO
+	@command -v op >/dev/null || { echo "op CLI not found: brew install 1password-cli"; exit 1; }
+	@tmp=$$(mktemp -d) && \
+		trap 'rm -rf "$$tmp"' EXIT INT TERM && \
+		( umask 077; \
+			op item list --vault "$(OP_VAULT)" --categories "SSH Key" --format json \
+				| jq -r '.[].title' \
+				| while IFS= read -r title; do \
+					dest=$$(printf '%s' "$$title" | tr ' ' '_'); \
+					echo "==> $$title"; \
+					op read "op://$(OP_VAULT)/$$title/private key?ssh-format=openssh" > "$$tmp/$$dest" || exit 1; \
+					op read "op://$(OP_VAULT)/$$title/public key" > "$$tmp/$$dest.pub" || exit 1; \
+				done ) && \
+		cp $(HOME)/.ssh/known_hosts "$$tmp/known_hosts" && \
+		tar -C "$$tmp" -czf - . \
+			| gpg --symmetric --cipher-algo AES256 --output "$(SECRETS_ARCHIVE)" && \
+		echo "wrote $(SECRETS_ARCHIVE)"
 
 .PHONY: secrets/restore
 secrets/restore:
-	# TODO
+	@test -f "$(SECRETS_ARCHIVE)" || { echo "no archive at $(SECRETS_ARCHIVE)"; exit 1; }
+	umask 077; mkdir -p $(HOME)/.ssh && \
+		gpg --decrypt "$(SECRETS_ARCHIVE)" | tar -C $(HOME)/.ssh -xzf -
 
 # bootstrap a brand new VM. The VM should have NixOS ISO on the CD drive
 # and just set the password of the root user to "root". This will install
@@ -106,9 +140,28 @@ vm/bootstrap:
 		sudo reboot; \
 	"
 
-# copy our secrets into the VM
+# copy our secrets into the VM. The private keys live in 1Password and are
+# streamed straight over ssh, so they are never written to the Mac's disk.
+# The Mac's ~/.ssh/config is deliberately not copied: its IdentityAgent points
+# at a 1Password socket that doesn't exist inside the VM.
 vm/secrets:
-	# TODO
+	@command -v op >/dev/null || { echo "op CLI not found: brew install 1password-cli"; exit 1; }
+	@ssh $(SECRETS_SSH_OPTIONS) -p$(NIXPORT) $(NIXUSER)@$(NIXADDR) "umask 077; mkdir -p ~/.ssh"
+	@op item list --vault "$(OP_VAULT)" --categories "SSH Key" --format json \
+		| jq -r '.[].title' \
+		| while IFS= read -r title; do \
+			dest=$$(printf '%s' "$$title" | tr ' ' '_'); \
+			echo "==> $$title -> ~/.ssh/$$dest"; \
+			priv=$$(op read "op://$(OP_VAULT)/$$title/private key?ssh-format=openssh") || exit 1; \
+			pub=$$(op read "op://$(OP_VAULT)/$$title/public key") || exit 1; \
+			printf '%s\n' "$$priv" | ssh $(SECRETS_SSH_OPTIONS) -p$(NIXPORT) $(NIXUSER)@$(NIXADDR) \
+				"umask 077; cat > ~/.ssh/$$dest"; \
+			printf '%s\n' "$$pub" | ssh $(SECRETS_SSH_OPTIONS) -p$(NIXPORT) $(NIXUSER)@$(NIXADDR) \
+				"cat > ~/.ssh/$$dest.pub && chmod 644 ~/.ssh/$$dest.pub"; \
+		done
+	rsync -av -e 'ssh $(SECRETS_SSH_OPTIONS) -p$(NIXPORT)' \
+		$(HOME)/.ssh/known_hosts $(NIXUSER)@$(NIXADDR):.ssh/known_hosts
+	-@ssh $(SECRETS_SSH_OPTIONS) -p$(NIXPORT) -O exit $(NIXUSER)@$(NIXADDR) 2>/dev/null
 
 # copy the Nix configurations into the VM.
 vm/copy:

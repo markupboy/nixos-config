@@ -88,7 +88,52 @@ NixOS customization using this configuration:
 make vm/bootstrap
 ```
 
+Partway through, this calls `make vm/secrets`, which reads your SSH keys out
+of 1Password and will prompt for access. See [Secrets](#secrets) below for the
+one-time setup that needs to be in place first.
+
 You should have a graphical functioning dev VM.
+
+## Secrets
+
+My SSH private keys live in 1Password rather than on disk, served to the Mac
+over the 1Password SSH agent. Keys cannot be exported from a running agent, so
+copying them into the VM means reading them from 1Password directly with the
+`op` CLI.
+
+One-time setup on the Mac:
+
+```
+brew install 1password-cli
+```
+
+Then turn on **Settings > Developer > Integrate with 1Password CLI** in the
+1Password desktop app, so `op` unlocks with Touch ID instead of needing a
+separate `op signin`.
+
+`make vm/secrets` enumerates every item of category "SSH Key" in the `Private`
+vault (override with `OP_VAULT`) and streams each one over ssh into the VM's
+`~/.ssh`, so the key material is never written to the Mac's disk. Item titles
+become filenames with spaces replaced by underscores, and `known_hosts` is
+copied across too. The Mac's `~/.ssh/config` is deliberately *not* copied,
+because its `IdentityAgent` line points at a socket that doesn't exist in the
+VM; the VM gets its own config from home-manager instead.
+
+Note that the keys land in the VM as unencrypted OpenSSH private keys. That is
+the trade-off for having them usable from the VM's own terminals rather than
+only over agent forwarding.
+
+Since 1Password is the source of truth, `make secrets/backup` is the hedge
+against losing access to it. It writes the same keys into a passphrase-encrypted
+archive that you can carry to a new machine, and `make secrets/restore` unpacks
+one back into the Mac's `~/.ssh`:
+
+```
+make secrets/backup SECRETS_ARCHIVE=/Volumes/usb/secrets.tar.gz.gpg
+make secrets/restore SECRETS_ARCHIVE=/Volumes/usb/secrets.tar.gz.gpg
+```
+
+`SECRETS_ARCHIVE` defaults to `~/secrets.tar.gz.gpg`.
 
 ## Setup (macOS/Darwin)
 
